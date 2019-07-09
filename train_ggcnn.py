@@ -3,6 +3,7 @@ import os
 import sys
 import argparse
 import logging
+import time
 
 import cv2
 
@@ -50,6 +51,9 @@ def parse_args():
     parser.add_argument('--outdir', type=str, default='output/models/', help='Training Output Directory')
     parser.add_argument('--logdir', type=str, default='tensorboard/', help='Log directory')
     parser.add_argument('--vis', action='store_true', help='Visualise the training process')
+
+    # Device
+    parser.add_argument('--cuda', type=int, default=0, help='Cuda device number')
 
     args = parser.parse_args()
     return args
@@ -180,7 +184,11 @@ def train(epoch, net, device, train_data, optimizer, batches_per_epoch, vis=Fals
 
 
 def run():
+    time_start = time.time()
     args = parse_args()
+
+    # Set visible devices
+    os.environ["CUDA_VISIBLE_DEVICES"]=str(args.cuda)
 
     # Set-up output directories
     dt = datetime.datetime.now().strftime('%y%m%d_%H%M')
@@ -221,6 +229,7 @@ def run():
     ggcnn = get_network(args.network)
 
     net = ggcnn(input_channels=input_channels)
+    # device = torch.device(f"cuda:{args.cuda}")
     device = torch.device("cuda:0")
     net = net.to(device)
     optimizer = optim.Adam(net.parameters())
@@ -262,6 +271,15 @@ def run():
             torch.save(net, os.path.join(save_folder, 'epoch_%02d_iou_%0.2f' % (epoch, iou)))
             best_iou = iou
 
+    # Print running time
+    time_stop = time.time()
+    time_total = time_stop - time_start
+    time_minutes = time_total // 60
+    time_hours = time_minutes // 60
+    time_minutes = time_minutes % 60
+    time_seconds = time_total % 60
+    time_seconds, time_minutes, time_hours = str(time_seconds).zfill(2), str(time_minutes).zfill(2), str(time_hours).zfill(2)
+    print(f'Running Time: {time_hours}h:{time_minutes}m:{time_seconds}s')
 
 if __name__ == '__main__':
     run()
