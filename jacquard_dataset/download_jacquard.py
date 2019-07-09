@@ -1,11 +1,5 @@
 import urllib.request, os, tqdm, subprocess
 
-def extract_tar_gz(fpath_list):
-	print('Extracting...')
-	for fpath in tqdm.tqdm(fpath_list):
-		subprocess.run(['tar', 'zxf', fpath])
-		subprocess.run(['rm', fpath])
-
 def extract_zip(fpath_list):
 	print('Extracting...')
 	for fpath in tqdm.tqdm(fpath_list):
@@ -41,6 +35,9 @@ def main():
 
 	# Downloads and returns local file path list of downloaded files
 	fpath_list = download_url_list(url_list)
+
+	# Extracts and cleans up zips
+	extract_zip(fpath_list)
 
 if __name__ == '__main__':
 	main()
