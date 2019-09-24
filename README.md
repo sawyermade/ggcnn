@@ -46,6 +46,7 @@ Currently, both the [Cornell Grasping Dataset](http://pr.cs.cornell.edu/grasping
 
 ### Cornell Grasping Dataset
 
+
 1. Download the and extract [Cornell Grasping Dataset](http://pr.cs.cornell.edu/grasping/rect_data/data.php) into a single directory.
 ```
 # Clone and enter directory
@@ -59,6 +60,9 @@ python3 download_cornell.py
 cd ..
 python3 -m utils.dataset_processing.generate_cornell_depth cornell_dataset
 ```
+
+1. Download the and extract [Cornell Grasping Dataset](http://pr.cs.cornell.edu/grasping/rect_data/data.php). 
+2. Convert the PCD files to depth images by running `python -m utils.dataset_processing.generate_cornell_depth <Path To Dataset>`
 
 
 ### Jacquard Dataset
