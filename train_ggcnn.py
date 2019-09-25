@@ -270,7 +270,8 @@ def run():
         # Save best performing network
         iou = test_results['correct'] / (test_results['correct'] + test_results['failed'])
         if iou > best_iou or epoch == 0 or (epoch % 10) == 0:
-            torch.save(net, os.path.join(save_folder, 'epoch_%02d_iou_%0.2f' % (epoch, iou)))
+            # torch.save(net, os.path.join(save_folder, 'epoch_%02d_iou_%0.2f' % (epoch, iou)))
+            torch.save(net, os.path.join(save_folder, f'epoch_{str(epoch).zfill(len(str(args.epochs)))}_iou_{iou:0.2f}'))
             best_iou = iou
 
     # Print running time
