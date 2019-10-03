@@ -1,8 +1,9 @@
 #!/bin/bash
 python3 train_ggcnn.py \
-	--description ggcnn2_500 \
+	--description ggcnn2_50 \
 	--network ggcnn2 \
 	--dataset cornell \
 	--dataset-path ~/DATASETS/cornell_dataset/ \
-	--epochs 500 \
-	--cuda $1
+	--epochs 50 \
+	--cuda $1 \
+	--vis
