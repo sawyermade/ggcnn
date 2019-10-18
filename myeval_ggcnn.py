@@ -75,7 +75,7 @@ if __name__ == '__main__':
             logging.info('Processing {}/{}'.format(idx+1, len(test_data)))
             xc = x.to(device)
             yc = [yi.to(device) for yi in y]
-            lossd = net.compute_loss(xc, yc)
+            lossd = net.compute_loss(xc, yc) 
 
             q_img, ang_img, width_img = post_process_output(lossd['pred']['pos'], lossd['pred']['cos'],
                                                         lossd['pred']['sin'], lossd['pred']['width'])
