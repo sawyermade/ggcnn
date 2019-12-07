@@ -24,41 +24,39 @@ from models.common import post_process_output
 
 logging.basicConfig(level=logging.INFO)
 
-cv2.namedWindow('Display', cv2.WINDOW_NORMAL)
+# Argument parser
+parser = argparse.ArgumentParser(description='Train GG-CNN')
+# Network
+parser.add_argument('--network', type=str, default='ggcnn', help='Network Name in .models')
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Train GG-CNN')
+# Dataset & Data & Training
+parser.add_argument('--dataset', type=str, help='Dataset Name ("cornell" or "jaquard")')
+parser.add_argument('--dataset-path', type=str, help='Path to dataset')
+parser.add_argument('--use-depth', type=int, default=1, help='Use Depth image for training (1/0)')
+parser.add_argument('--use-rgb', type=int, default=0, help='Use RGB image for training (0/1)')
+parser.add_argument('--split', type=float, default=0.9, help='Fraction of data for training (remainder is validation)')
+parser.add_argument('--ds-rotate', type=float, default=0.0,
+                    help='Shift the start point of the dataset to use a different test/train split for cross validation.')
+parser.add_argument('--num-workers', type=int, default=8, help='Dataset workers')
 
-    # Network
-    parser.add_argument('--network', type=str, default='ggcnn', help='Network Name in .models')
+parser.add_argument('--batch-size', type=int, default=8, help='Batch size')
+parser.add_argument('--epochs', type=int, default=30, help='Training epochs')
+parser.add_argument('--batches-per-epoch', type=int, default=1000, help='Batches per Epoch')
+parser.add_argument('--val-batches', type=int, default=250, help='Validation Batches')
 
-    # Dataset & Data & Training
-    parser.add_argument('--dataset', type=str, help='Dataset Name ("cornell" or "jaquard")')
-    parser.add_argument('--dataset-path', type=str, help='Path to dataset')
-    parser.add_argument('--use-depth', type=int, default=1, help='Use Depth image for training (1/0)')
-    parser.add_argument('--use-rgb', type=int, default=0, help='Use RGB image for training (0/1)')
-    parser.add_argument('--split', type=float, default=0.9, help='Fraction of data for training (remainder is validation)')
-    parser.add_argument('--ds-rotate', type=float, default=0.0,
-                        help='Shift the start point of the dataset to use a different test/train split for cross validation.')
-    parser.add_argument('--num-workers', type=int, default=8, help='Dataset workers')
+# Logging etc.
+parser.add_argument('--description', type=str, default='', help='Training description')
+parser.add_argument('--outdir', type=str, default='output/models/', help='Training Output Directory')
+parser.add_argument('--logdir', type=str, default='tensorboard/', help='Log directory')
+parser.add_argument('--vis', action='store_true', help='Visualise the training process')
 
-    parser.add_argument('--batch-size', type=int, default=8, help='Batch size')
-    parser.add_argument('--epochs', type=int, default=30, help='Training epochs')
-    parser.add_argument('--batches-per-epoch', type=int, default=1000, help='Batches per Epoch')
-    parser.add_argument('--val-batches', type=int, default=250, help='Validation Batches')
+# Device
+parser.add_argument('--cuda', type=int, default=0, help='Cuda device number')
 
-    # Logging etc.
-    parser.add_argument('--description', type=str, default='', help='Training description')
-    parser.add_argument('--outdir', type=str, default='output/models/', help='Training Output Directory')
-    parser.add_argument('--logdir', type=str, default='tensorboard/', help='Log directory')
-    parser.add_argument('--vis', action='store_true', help='Visualise the training process')
-
-    # Device
-    parser.add_argument('--cuda', type=int, default=0, help='Cuda device number')
-
-    args = parser.parse_args()
-    return args
-
+# Parse args and open vis window if selected
+args = parser.parse_args()
+if args.vis:
+    cv2.namedWindow('Display', cv2.WINDOW_NORMAL)
 
 def validate(net, device, val_data, batches_per_epoch):
     """
@@ -187,7 +185,7 @@ def train(epoch, net, device, train_data, optimizer, batches_per_epoch, vis=Fals
 
 def run():
     time_start = time.time()
-    args = parse_args()
+    # args = parse_args()
 
     # Set visible devices
     os.environ["CUDA_VISIBLE_DEVICES"]=str(args.cuda)

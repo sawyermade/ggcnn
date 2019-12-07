@@ -5,5 +5,7 @@ python3 train_ggcnn.py \
 	--dataset cornell \
 	--dataset-path ~/DATASETS/cornell_dataset/ \
 	--epochs 50 \
-	--cuda $1 #\
+	--use-depth 1 \
+	--use-rgb 1 \
+	--cuda $1
 #	--vis

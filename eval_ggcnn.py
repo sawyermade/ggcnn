@@ -7,6 +7,8 @@ from models.common import post_process_output
 from utils.dataset_processing import evaluation, grasp
 from utils.data import get_dataset
 
+import os
+
 logging.basicConfig(level=logging.INFO)
 
 
@@ -32,6 +34,10 @@ def parse_args():
     parser.add_argument('--jacquard-output', action='store_true', help='Jacquard-dataset style output')
     parser.add_argument('--vis', action='store_true', help='Visualise the network output')
 
+    # Device
+    parser.add_argument('--cuda', type=int, default=0, help='Cuda device number')
+
+
     args = parser.parse_args()
 
     if args.jacquard_output and args.dataset != 'jacquard':
@@ -43,7 +49,11 @@ def parse_args():
 
 
 if __name__ == '__main__':
+    # Get args
     args = parse_args()
+
+    # Set visible devices
+    os.environ["CUDA_VISIBLE_DEVICES"]=str(args.cuda)
 
     # Load Network
     net = torch.load(args.network)
