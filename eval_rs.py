@@ -8,6 +8,7 @@ from utils.dataset_processing import evaluation, grasp
 from utils.data import get_dataset
 
 import pyrealsense2 as rs, numpy as np, cv2, os
+# from utils.dataset_processing.grasp import detect_grasps
 
 logging.basicConfig(level=logging.INFO)
 
@@ -48,7 +49,7 @@ def parse_args():
     return args
 
 def numpy_to_torch(s):
-    if len(s.shape) == 2:
+    if len(s.shape) == 3:
         return torch.from_numpy(np.expand_dims(s, 0).astype(np.float32))
     else:
         return torch.from_numpy(s.astype(np.float32))
@@ -100,7 +101,7 @@ if __name__ == '__main__':
 
     # First few images are no good until exposure adjusts
     count = 0
-    while count < 10:
+    while count < 60:
         # Get frames
         frames = pipeline_rs.wait_for_frames()
         count += 1
@@ -114,32 +115,59 @@ if __name__ == '__main__':
             aligned_frames = align.process(frames)
 
             # Get aligned frames
-            color_frame = np.asanyarray(aligned_frames.get_color_frame().get_data())
-            color_frame = color_frame.transpose((2, 0, 1))
-            depth_frame = np.asanyarray(aligned_frames.get_depth_frame().get_data())
+            color_frame = aligned_frames.get_color_frame()
+            depth_frame = aligned_frames.get_depth_frame()
+            color_img = np.asanyarray(color_frame.get_data())
+            depth_img = np.asanyarray(depth_frame.get_data())
+
+            # Normalize and transpose color
+            color_norm = color_img.astype(np.float32) / 255.0
+            color_norm = color_norm.transpose((2, 0, 1))
+            depth_norm = np.clip((depth_img - depth_img.mean()), -1, 1)
 
             # Format image to pytorch
             if args.use_rgb and args.use_depth:
                 x = numpy_to_torch(
                     np.concatenate(
-                        (np.expand_dims(depth_frame, 0), color_frame), 0
+                        (np.expand_dims(depth_norm, 0), color_norm), 0
                     )
                 )
             elif args.use_depth:
-                x = numpy_to_torch(depth_frame)
+                x = numpy_to_torch(depth_norm)
             elif args.use_rgb:
-                x = numpy_to_torch(color_frame)
+                x = numpy_to_torch(color_norm)
             
             # Send to device and run inference
+            print('x.size()', x.size())
             xc = x.to(device)
             pos_pred, cos_pred, sin_pred, width_pred = net.forward(xc)
             q_img, ang_img, width_img = post_process_output(pos_pred, cos_pred, sin_pred, width_pred)
-            grasps = detect_grasps(q_img, ang_img, width_img, arg.n_grasps)
+            grasps = grasp.detect_grasps(q_img, ang_img, width_img, args.n_grasps)
+            
+            # DEBUG
+            print(len(grasps), type(grasps))
             print(grasps)
 
-            cont = input('Continue (y/n): ')
-            if cont.startswith('n'):
+            # Overlays rectangle on color image
+            line_color = (0, 255, 0)
+            line_width = 2
+            grasp_rec = grasps[0].as_gr
+            pts = grasp_rec.get_pts()
+            p0, p1, p2, p3 = [(int(p[0]), int(p[1])) for p in pts]
+            color_img = cv2.line(color_img, p0, p1, line_color, line_width)
+            color_img = cv2.line(color_img, p1, p2, line_color, line_width)
+            color_img = cv2.line(color_img, p2, p3, line_color, line_width)
+            color_img = cv2.line(color_img, p3, p0, line_color, line_width)
+
+            # Shows image
+            cv2.imshow('Grasp Rectangle', color_img)
+            k = cv2.waitKey(0)
+            if k == 27:
                 flag = False
+
+            # cont = input('Continue (y/n): ')
+            # if cont.startswith('n'):
+            #     flag = False
 
     #     for idx, (x, y, didx, rot, zoom) in enumerate(test_data):
     #             logging.info('Processing {}/{}'.format(idx+1, len(test_data)))

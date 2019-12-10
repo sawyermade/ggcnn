@@ -204,6 +204,9 @@ class GraspRectangle:
     def __str__(self):
         return str(self.points)
 
+    def get_pts(self):
+        return self.points
+
     @property
     def angle(self):
         """
@@ -357,6 +360,16 @@ class Grasp:
         self.angle = angle  # Positive angle means rotate anti-clockwise from horizontal.
         self.length = length
         self.width = width
+
+    def __str__(self):
+        s = f'center: {self.center}, angle: {self.angle}, length: {self.length}, width: {self.width}'
+        t = f'grasp rectangle: {self.as_gr}'
+        return f'{s}\n{t}'
+
+    def __repr__(self):
+        s = f'center: {self.center}, angle: {self.angle}, length: {self.length}, width: {self.width}'
+        t = f'grasp rectangle: {self.as_gr}'
+        return f'{s}\n{t}'
 
     @property
     def as_gr(self):
