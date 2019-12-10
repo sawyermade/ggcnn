@@ -82,6 +82,14 @@ class GraspDatasetBase(torch.utils.data.Dataset):
                     0
                 )
             )
+            print('x size 1', x.size())
+            xt = np.concatenate(
+                (np.expand_dims(depth_img, 0),
+                 rgb_img),
+                0
+            )
+            print('xt concat shape', xt.shape)
+
         elif self.include_depth:
             x = self.numpy_to_torch(depth_img)
         elif self.include_rgb:
@@ -92,6 +100,7 @@ class GraspDatasetBase(torch.utils.data.Dataset):
         sin = self.numpy_to_torch(np.sin(2*ang_img))
         width = self.numpy_to_torch(width_img)
 
+        print('x size 2', x.size())
         return x, (pos, cos, sin, width), idx, rot, zoom_factor
 
     def __len__(self):

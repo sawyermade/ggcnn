@@ -82,10 +82,12 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         for idx, (x, y, didx, rot, zoom) in enumerate(test_data):
+            print('x size 3', x.size())
             logging.info('Processing {}/{}'.format(idx+1, len(test_data)))
             xc = x.to(device)
             yc = [yi.to(device) for yi in y]
             lossd = net.compute_loss(xc, yc)
+
 
             q_img, ang_img, width_img = post_process_output(lossd['pred']['pos'], lossd['pred']['cos'],
                                                         lossd['pred']['sin'], lossd['pred']['width'])

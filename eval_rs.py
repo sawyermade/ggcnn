@@ -65,7 +65,7 @@ if __name__ == '__main__':
     net = torch.load(args.network)
     device = torch.device("cuda:0")
 
-    # Load Dataset
+    # # Load Dataset
     # logging.info('Loading {} Dataset...'.format(args.dataset.title()))
     # Dataset = get_dataset(args.dataset)
     # test_dataset = Dataset(args.dataset_path, start=args.split, end=1.0, ds_rotate=args.ds_rotate,
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     align_to = rs.stream.color
     align = rs.align(align_to)
 
-    # First few images are no good
+    # First few images are no good until exposure adjusts
     count = 0
     while count < 10:
         # Get frames
@@ -107,6 +107,7 @@ if __name__ == '__main__':
 
     flag = True
     with torch.no_grad():
+        
         while flag:
             # Get realsense images
             frames = pipeline_rs.wait_for_frames()
@@ -114,38 +115,24 @@ if __name__ == '__main__':
 
             # Get aligned frames
             color_frame = np.asanyarray(aligned_frames.get_color_frame().get_data())
+            color_frame = color_frame.transpose((2, 0, 1))
             depth_frame = np.asanyarray(aligned_frames.get_depth_frame().get_data())
-            # depth_frame = np.expand_dims(depth_frame, 0)
-            print('color', color_frame.shape)
-            print('depth', depth_frame.shape)
-
-
-            xt = np.concatenate(
-                (np.expand_dims(depth_frame, 2), color_frame), 2
-            )
-            x = numpy_to_torch(xt)
-            print(xt.shape)
-            # break
 
             # Format image to pytorch
-            # if args.use_rgb and args.use_depth:
-            #     x = numpy_to_torch(
-            #         np.concatenate(
-            #             (np.expand_dims(depth_frame, 2), color_frame), 2
-            #         )
-            #     )
-            # elif args.use_depth:
-            #     x = numpy_to_torch(depth_frame)
-            # elif args.use_rgb:
-            #     x = numpy_to_torch(color_frame)
-
-            # for idx, (x, y, didx, rot, zoom) in enumerate(test_data):
-            # logging.info('Processing {}/{}'.format(idx+1, len(test_data)))
+            if args.use_rgb and args.use_depth:
+                x = numpy_to_torch(
+                    np.concatenate(
+                        (np.expand_dims(depth_frame, 0), color_frame), 0
+                    )
+                )
+            elif args.use_depth:
+                x = numpy_to_torch(depth_frame)
+            elif args.use_rgb:
+                x = numpy_to_torch(color_frame)
+            
+            # Send to device and run inference
             xc = x.to(device)
             pos_pred, cos_pred, sin_pred, width_pred = net.forward(xc)
-            # yc = [yi.to(device) for yi in y]
-            # lossd = net.compute_loss(xc, yc)
-
             q_img, ang_img, width_img = post_process_output(pos_pred, cos_pred, sin_pred, width_pred)
             grasps = detect_grasps(q_img, ang_img, width_img, arg.n_grasps)
             print(grasps)
@@ -154,27 +141,36 @@ if __name__ == '__main__':
             if cont.startswith('n'):
                 flag = False
 
-        # if args.iou_eval:
-        #     s = evaluation.calculate_iou_match(q_img, ang_img, test_data.dataset.get_gtbb(didx, rot, zoom),
-        #                                        no_grasps=args.n_grasps,
-        #                                        grasp_width=width_img,
-        #                                        )
-        #     if s:
-        #         results['correct'] += 1
-        #     else:
-        #         results['failed'] += 1
+    #     for idx, (x, y, didx, rot, zoom) in enumerate(test_data):
+    #             logging.info('Processing {}/{}'.format(idx+1, len(test_data)))
+    #             xc = x.to(device)
+    #             yc = [yi.to(device) for yi in y]
+    #             lossd = net.compute_loss(xc, yc)
 
-        # if args.jacquard_output:
-        #     grasps = grasp.detect_grasps(q_img, ang_img, width_img=width_img, no_grasps=1)
-        #     with open(jo_fn, 'a') as f:
-        #         for g in grasps:
-        #             f.write(test_data.dataset.get_jname(didx) + '\n')
-        #             f.write(g.to_jacquard(scale=1024 / 300) + '\n')
+    #             q_img, ang_img, width_img = post_process_output(lossd['pred']['pos'], lossd['pred']['cos'],
+    #                                                         lossd['pred']['sin'], lossd['pred']['width'])
 
-        # if args.vis:
-        #     evaluation.plot_output(test_data.dataset.get_rgb(didx, rot, zoom, normalise=False),
-        #                            test_data.dataset.get_depth(didx, rot, zoom), q_img,
-        #                            ang_img, no_grasps=args.n_grasps, grasp_width_img=width_img)
+    #             if args.iou_eval:
+    #                 s = evaluation.calculate_iou_match(q_img, ang_img, test_data.dataset.get_gtbb(didx, rot, zoom),
+    #                                                    no_grasps=args.n_grasps,
+    #                                                    grasp_width=width_img,
+    #                                                    )
+    #                 if s:
+    #                     results['correct'] += 1
+    #                 else:
+    #                     results['failed'] += 1
+
+    #             if args.jacquard_output:
+    #                 grasps = grasp.detect_grasps(q_img, ang_img, width_img=width_img, no_grasps=1)
+    #                 with open(jo_fn, 'a') as f:
+    #                     for g in grasps:
+    #                         f.write(test_data.dataset.get_jname(didx) + '\n')
+    #                         f.write(g.to_jacquard(scale=1024 / 300) + '\n')
+
+    #             if args.vis:
+    #                 evaluation.plot_output(test_data.dataset.get_rgb(didx, rot, zoom, normalise=False),
+    #                                        test_data.dataset.get_depth(didx, rot, zoom), q_img,
+    #                                        ang_img, no_grasps=args.n_grasps, grasp_width_img=width_img)
 
     # if args.iou_eval:
     #     logging.info('IOU Results: %d/%d = %f' % (results['correct'],
