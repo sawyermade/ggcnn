@@ -38,7 +38,7 @@ def parse_args():
     # Device
     parser.add_argument('--cuda', type=int, default=0, help='Cuda device number')
 
-
+    # Parse args
     args = parser.parse_args()
 
     if args.jacquard_output and args.dataset != 'jacquard':
