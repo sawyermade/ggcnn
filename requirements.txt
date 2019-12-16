@@ -11,3 +11,5 @@ tqdm
 tensorboard
 pyrealsense2
 opencv-contrib-python
+jsonpickle
+requests
