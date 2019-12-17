@@ -12,6 +12,7 @@ import pyrealsense2 as rs, numpy as np, cv2, os, sys, jsonpickle, requests
 
 logging.basicConfig(level=logging.INFO)
 
+DEBUG = True
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluate GG-CNN')
@@ -54,6 +55,31 @@ def numpy_to_torch(s):
     else:
         return torch.from_numpy(s.astype(np.float32))
 
+# Uploads to Detectron
+def upload(url, frame):
+    # Prep headers for http req
+    content_type = 'application/json'
+    headers = {'content_type': content_type}
+
+    # jsonpickle the numpy frame
+    _, frame_png = cv2.imencode('.png', frame)
+    frame_json = jsonpickle.encode(frame_png)
+
+    # Post and get response
+    try:
+        response = requests.post(url, data=frame_json, headers=headers)
+        if response.text:
+            # Decode response and return it
+            retList = jsonpickle.decode(response.text)
+            retList[0] = cv2.imdecode(retList[0], cv2.IMREAD_COLOR)
+            retList[-1] = [cv2.imdecode(m, cv2.IMREAD_GRAYSCALE) for m in retList[-1]]
+            
+            # returns [vis.png, bbList, labelList, scoreList, maskList]
+            return retList
+        else:
+            return None
+    except:
+        return None
 
 if __name__ == '__main__':
     # Get args
@@ -99,6 +125,11 @@ if __name__ == '__main__':
     align_to = rs.stream.color
     align = rs.align(align_to)
 
+    # Detectron stuff
+    domain = '127.0.0.1'
+    port = '665'
+    url = f'http://{domain}:{port}'
+
     # First few images are no good until exposure adjusts
     count = 0
     while count < 60:
@@ -120,10 +151,45 @@ if __name__ == '__main__':
             color_img = np.asanyarray(color_frame.get_data())
             depth_img = np.asanyarray(depth_frame.get_data())
 
+            # Gets masks
+            # returns [vis.png, bbList, labelList, scoreList, maskList]
+            retList = upload(url, color_img)
+            if not retList:
+                continue
+            maskList = retList[-1]
+            labelList = retList[2]
+            
+            # Applies mask to images
+            which_mask = labelList.index('remote')
+            print(len(maskList), which_mask)
+            mask_temp = maskList[which_mask]
+            mask = np.zeros(color_img.shape, dtype=np.uint8)
+            print(mask.shape)
+            mask[:,:,0] = np.copy(mask_temp)
+            mask[:,:,1] = np.copy(mask_temp)
+            mask[:,:,2] = np.copy(mask_temp)
+            mask_white = np.copy(mask)
+            mask_white[mask_white < 1] = 255
+            mask_white[mask_white == 1] = 0
+            # print(mask[mask > 0])
+            # color_img_masked = mask * color_img + mask_white
+            color_img_masked = mask * color_img + mask_white
+            color_img_resize = cv2.resize(color_img_masked, (300, 300))
+            # color_img_masked = mask * color_img
+            # print(color_img_masked[color_img_masked > 0])
+            depth_img_masked = mask[:,:,0] * depth_img
+            depth_img_resize = cv2.resize(depth_img_masked, (300, 300))
+
+            # Shows image
+            cv2.imshow(labelList[which_mask], color_img_masked)
+            k = cv2.waitKey(0)
+            if k == 27:
+                break
+
             # Normalize and transpose color
-            color_norm = color_img.astype(np.float32) / 255.0
+            color_norm = color_img_resize.astype(np.float32) / 255.0
             color_norm = color_norm.transpose((2, 0, 1))
-            depth_norm = np.clip((depth_img - depth_img.mean()), -1, 1)
+            depth_norm = np.clip((depth_img_resize - depth_img_resize.mean()), -1, 1)
 
             # Format image to pytorch
             if args.use_rgb and args.use_depth:
@@ -145,8 +211,9 @@ if __name__ == '__main__':
             grasps = grasp.detect_grasps(q_img, ang_img, width_img, args.n_grasps)
             
             # DEBUG
-            print(len(grasps), type(grasps))
-            print(grasps)
+            if DEBUG:
+                print(len(grasps), type(grasps))
+                print(grasps)
 
             # Overlays rectangle on color image
             line_color = (0, 255, 0)
