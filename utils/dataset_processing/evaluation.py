@@ -16,6 +16,7 @@ def plot_output(rgb_img, depth_img, grasp_q_img, grasp_angle_img, no_grasps=1, g
     :return:
     """
     gs = detect_grasps(grasp_q_img, grasp_angle_img, width_img=grasp_width_img, no_grasps=no_grasps)
+    print('grasps gs = ', gs)
 
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(2, 2, 1)

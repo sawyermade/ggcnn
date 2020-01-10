@@ -169,6 +169,14 @@ class DepthImage(Image):
     def from_tiff(cls, fname):
         return cls(imread(fname))
 
+    @classmethod
+    def from_png(cls, fname):
+        img_temp = cv2.imread(fname, -1)
+        img_temp = img_temp / 1000.0
+        print('img_temp type = ', img_temp.dtype)
+        cv2.imwrite('img_temp.png', img_temp)
+        return cls(imread('img_temp.png'))
+
     def inpaint(self, missing_value=0):
         """
         Inpaint missing values in depth image.
