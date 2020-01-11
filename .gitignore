@@ -6,3 +6,4 @@ tensorboard
 *.pyc
 
 /.python-version
+img_temp.png
