@@ -81,38 +81,43 @@ if __name__ == '__main__':
             pass
 
     with torch.no_grad():
-        for idx, (x, y, didx, rot, zoom) in enumerate(test_data):
-            print('x size 3', x.size())
-            logging.info('Processing {}/{}'.format(idx+1, len(test_data)))
-            xc = x.to(device)
-            yc = [yi.to(device) for yi in y]
-            lossd = net.compute_loss(xc, yc)
+        flag_run = True
+        while flag_run:
+            # Pull Realsense
+
+            for idx, (x, y, didx, rot, zoom) in enumerate(test_data):
+                print('x size 3', x.size())
+                logging.info('Processing {}/{}'.format(idx+1, len(test_data)))
+                xc = x.to(device)
+                yc = [yi.to(device) for yi in y]
+                lossd = net.compute_loss(xc, yc)
 
 
-            q_img, ang_img, width_img = post_process_output(lossd['pred']['pos'], lossd['pred']['cos'],
-                                                        lossd['pred']['sin'], lossd['pred']['width'])
+                q_img, ang_img, width_img = post_process_output(lossd['pred']['pos'], lossd['pred']['cos'],
+                                                            lossd['pred']['sin'], lossd['pred']['width'])
 
-            if args.iou_eval:
-                s = evaluation.calculate_iou_match(q_img, ang_img, test_data.dataset.get_gtbb(didx, rot, zoom),
-                                                   no_grasps=args.n_grasps,
-                                                   grasp_width=width_img,
-                                                   )
-                if s:
-                    results['correct'] += 1
-                else:
-                    results['failed'] += 1
+                if args.iou_eval:
+                    s = evaluation.calculate_iou_match(q_img, ang_img, test_data.dataset.get_gtbb(didx, rot, zoom),
+                                                       no_grasps=args.n_grasps,
+                                                       grasp_width=width_img,
+                                                       )
+                    if s:
+                        results['correct'] += 1
+                    else:
+                        results['failed'] += 1
 
-            if args.jacquard_output:
-                grasps = grasp.detect_grasps(q_img, ang_img, width_img=width_img, no_grasps=1)
-                with open(jo_fn, 'a') as f:
-                    for g in grasps:
-                        f.write(test_data.dataset.get_jname(didx) + '\n')
-                        f.write(g.to_jacquard(scale=1024 / 300) + '\n')
+                if args.jacquard_output:
+                    grasps = grasp.detect_grasps(q_img, ang_img, width_img=width_img, no_grasps=1)
+                    with open(jo_fn, 'a') as f:
+                        for g in grasps:
+                            f.write(test_data.dataset.get_jname(didx) + '\n')
+                            f.write(g.to_jacquard(scale=1024 / 300) + '\n')
 
-            if args.vis:
-                evaluation.plot_output(test_data.dataset.get_rgb(didx, rot, zoom, normalise=False),
-                                       test_data.dataset.get_depth(didx, rot, zoom), q_img,
-                                       ang_img, no_grasps=args.n_grasps, grasp_width_img=width_img)
+                if args.vis:
+                    rgb_gotten, center_list = test_data.dataset.get_rgb(didx, rot, zoom, normalise=False)
+                    depth_gotten = test_data.dataset.get_depth(didx, rot, zoom, center_list)
+                    evaluation.plot_output(rgb_gotten, depth_gotten, q_img,
+                                           ang_img, no_grasps=args.n_grasps, grasp_width_img=width_img)
 
     if args.iou_eval:
         logging.info('IOU Results: %d/%d = %f' % (results['correct'],

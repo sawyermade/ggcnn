@@ -2,11 +2,12 @@ import os
 import glob
 import numpy as np
 
-from .grasp_data_dir import GraspDatasetBaseDir
+from .grasp_data_dir import GraspDatasetBaseDir, GraspRsDirDataset
 from utils.dataset_processing import grasp, image
 
+import cv2, jsonpickle, requests
 
-class RsDirDataset(GraspDatasetBaseDir):
+class RsDirDataset(GraspRsDirDataset):
     """
     Dataset wrapper for the Cornell dataset.
     """
@@ -37,9 +38,9 @@ class RsDirDataset(GraspDatasetBaseDir):
         self.depth_files = depthf[int(l*start):int(l*end)]
         self.rgb_files = rgbf[int(l*start):int(l*end)]
 
-    def _get_crop_attrs(self, idx):
+    def _get_crop_attrs(self, idx, center=[240, 320]):
         # gtbbs = grasp.GraspRectangles.load_from_cornell_file(self.grasp_files[idx])
-        center = [240, 320]
+        # center = [240, 320]
         left = max(0, min(center[1] - self.output_size // 2, 640 - self.output_size))
         top = max(0, min(center[0] - self.output_size // 2, 480 - self.output_size))
         return center, left, top
@@ -56,10 +57,15 @@ class RsDirDataset(GraspDatasetBaseDir):
         gtbbs.zoom(zoom, (self.output_size//2, self.output_size//2))
         return gtbbs
 
-    def get_depth(self, idx, rot=0, zoom=1.0):
+    def get_depth(self, idx, rot=0, zoom=1.0, center_list=None):
         depth_img = image.DepthImage.from_png(self.depth_files[idx])
+        # center, left, top = self._get_crop_attrs(idx)
         # print('depth_img.img 1', depth_img.img.shape)
-        center, left, top = self._get_crop_attrs(idx)
+        if center_list == None:
+            center, left, top = self._get_crop_attrs(idx)
+        else:
+            # print(f'\nIN CENTER_LIST:\n{center_list}\n')
+            center, left, top = center_list[0], center_list[1], center_list[2]
         depth_img.rotate(rot, center)
         depth_img.crop((top, left), (min(480, top + self.output_size), min(640, left + self.output_size)))
         depth_img.normalise()
@@ -69,9 +75,41 @@ class RsDirDataset(GraspDatasetBaseDir):
         return depth_img.img
 
     def get_rgb(self, idx, rot=0, zoom=1.0, normalise=True):
-        rgb_img = image.Image.from_file(self.rgb_files[idx])
+        ret_list = None
+        # color_img = cv2.imread(self.rgb_files[idx], -1)
+        # temp_idx = idx
+        color_img = cv2.imread(self.rgb_files[idx], -1)
+        print(f'\n**** IDX = {idx} ****\n')
+        while ret_list == None:
+            
+            ret_list = self.upload(color_img)
+            # temp_idx += 1
+            # idx = temp_idx
+        
+        mask_list = ret_list[-1]
+        label_list = ret_list[2]
+        bb_list = ret_list[1]
+        which_mask = label_list.index('remote')
+        mask_temp = mask_list[which_mask]
+        bb_temp = bb_list[which_mask]
+        mask = np.zeros(color_img.shape, dtype=np.uint8)
+        mask[:,:,0] = np.copy(mask_temp)
+        mask[:,:,1] = np.copy(mask_temp)
+        mask[:,:,2] = np.copy(mask_temp)
+        mask_white = np.copy(mask)
+        mask_white[mask_white < 1] = 255
+        mask_white[mask_white == 1] = 0
+        color_img_masked = mask * color_img + mask_white
+        temp_out_path = 'temp_rgb_masked.png'
+        cv2.imwrite(temp_out_path, color_img_masked)
+
+        bb_dims = [bb_temp[2] - bb_temp[0], bb_temp[3] - bb_temp[1]]
+        center = [int(bb_temp[1] + bb_dims[1] // 2), int(bb_temp[0] + bb_dims[0] // 2)]
+
+        rgb_img = image.Image.from_file(temp_out_path)
+        # rgb_img = image.Image.from_file(self.rgb_files[idx])
         # print('rgb_img.img 1', rgb_img.img.shape)
-        center, left, top = self._get_crop_attrs(idx)
+        center, left, top = self._get_crop_attrs(idx, center)
         rgb_img.rotate(rot, center)
         rgb_img.crop((top, left), (min(480, top + self.output_size), min(640, left + self.output_size)))
         rgb_img.zoom(zoom)
@@ -81,4 +119,30 @@ class RsDirDataset(GraspDatasetBaseDir):
             rgb_img.img = rgb_img.img.transpose((2, 0, 1))
             # print('rgb_img.img', rgb_img.img.shape)
         # print('rgb_img.img 2', rgb_img.img.shape)
-        return rgb_img.img
+        return rgb_img.img, (center, left, top)
+
+    # Uploads to Detectron
+    def upload(self, frame, url='http://127.0.0.1:665'):
+        # Prep headers for http req
+        content_type = 'application/json'
+        headers = {'content_type': content_type}
+
+        # jsonpickle the numpy frame
+        _, frame_png = cv2.imencode('.png', frame)
+        frame_json = jsonpickle.encode(frame_png)
+
+        # Post and get response
+        try:
+            response = requests.post(url, data=frame_json, headers=headers)
+            if response.text:
+                # Decode response and return it
+                retList = jsonpickle.decode(response.text)
+                retList[0] = cv2.imdecode(retList[0], cv2.IMREAD_COLOR)
+                retList[-1] = [cv2.imdecode(m, cv2.IMREAD_GRAYSCALE) for m in retList[-1]]
+                
+                # returns [vis.png, bbList, labelList, scoreList, maskList]
+                return retList
+            else:
+                return None
+        except:
+            return None

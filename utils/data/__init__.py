@@ -8,5 +8,8 @@ def get_dataset(dataset_name):
     elif dataset_name == 'rs_dir':
     	from .rs_dir_data import RsDirDataset
     	return RsDirDataset
+    elif dataset_name == 'rs':
+        from .rs_data import RsDataset
+        return RsDataset
     else:
         raise NotImplementedError('Dataset Type {} is Not implemented'.format(dataset_name))

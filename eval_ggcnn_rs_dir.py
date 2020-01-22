@@ -110,8 +110,9 @@ if __name__ == '__main__':
                         f.write(g.to_jacquard(scale=1024 / 300) + '\n')
 
             if args.vis:
-                evaluation.plot_output(test_data.dataset.get_rgb(didx, rot, zoom, normalise=False),
-                                       test_data.dataset.get_depth(didx, rot, zoom), q_img,
+                rgb_gotten, center_list = test_data.dataset.get_rgb(didx, rot, zoom, normalise=False)
+                depth_gotten = test_data.dataset.get_depth(didx, rot, zoom, center_list)
+                evaluation.plot_output(rgb_gotten, depth_gotten, q_img,
                                        ang_img, no_grasps=args.n_grasps, grasp_width_img=width_img)
 
     if args.iou_eval:

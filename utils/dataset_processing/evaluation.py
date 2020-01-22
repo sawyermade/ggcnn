@@ -20,6 +20,7 @@ def plot_output(rgb_img, depth_img, grasp_q_img, grasp_angle_img, no_grasps=1, g
 
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(2, 2, 1)
+    # print(rgb_img[0])
     ax.imshow(rgb_img)
     for g in gs:
         g.plot(ax)
