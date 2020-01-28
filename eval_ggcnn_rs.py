@@ -7,7 +7,9 @@ from models.common import post_process_output
 from utils.dataset_processing import evaluation, grasp
 from utils.data import get_dataset
 
-import os
+import os, cv2
+import pyrealsense2 as rs
+import numpy as np
 
 logging.basicConfig(level=logging.INFO)
 
@@ -59,19 +61,42 @@ if __name__ == '__main__':
     net = torch.load(args.network)
     device = torch.device("cuda:0")
 
-    # Load Dataset
-    logging.info('Loading {} Dataset...'.format(args.dataset.title()))
-    Dataset = get_dataset(args.dataset)
-    test_dataset = Dataset(args.dataset_path, start=args.split, end=1.0, ds_rotate=args.ds_rotate,
-                           random_rotate=args.augment, random_zoom=args.augment,
-                           include_depth=args.use_depth, include_rgb=args.use_rgb)
-    test_data = torch.utils.data.DataLoader(
-        test_dataset,
-        batch_size=1,
-        shuffle=False,
-        num_workers=args.num_workers
-    )
-    logging.info('Done')
+    # Create temp_img_dir if it doesnt exist
+    if not os.path.exists(args.dataset_path):
+        os.makedirs(args.dataset_path)
+
+    # Realsense Setup
+    width_rs, height_rs, fps_rs = 640, 480, 60
+    pipeline_rs = rs.pipeline()
+    config_rs = rs.config()
+    config_rs.enable_stream(rs.stream.depth, width_rs, height_rs, rs.format.z16, fps_rs)
+    config_rs.enable_stream(rs.stream.color, width_rs, height_rs, rs.format.bgr8, fps_rs)
+    profile_rs = pipeline_rs.start(config_rs)
+
+    # Realsense alignment
+    align_to = rs.stream.color
+    align = rs.align(align_to)
+
+    # First few images are no good until exposure adjusts
+    count = 0
+    while count < 60:
+        # Get frames
+        frames = pipeline_rs.wait_for_frames()
+        count += 1
+
+    # # Load Dataset
+    # logging.info('Loading {} Dataset...'.format(args.dataset.title()))
+    # Dataset = get_dataset(args.dataset)
+    # test_dataset = Dataset(args.dataset_path, start=args.split, end=1.0, ds_rotate=args.ds_rotate,
+    #                        random_rotate=args.augment, random_zoom=args.augment,
+    #                        include_depth=args.use_depth, include_rgb=args.use_rgb)
+    # test_data = torch.utils.data.DataLoader(
+    #     test_dataset,
+    #     batch_size=1,
+    #     shuffle=False,
+    #     num_workers=args.num_workers
+    # )
+    # logging.info('Done')
 
     results = {'correct': 0, 'failed': 0}
 
@@ -83,7 +108,36 @@ if __name__ == '__main__':
     with torch.no_grad():
         flag_run = True
         while flag_run:
-            # Pull Realsense
+            # Get realsense images
+            frames = pipeline_rs.wait_for_frames()
+            aligned_frames = align.process(frames)
+
+            # Get aligned frames
+            color_frame = aligned_frames.get_color_frame()
+            depth_frame = aligned_frames.get_depth_frame()
+            color_img = np.asanyarray(color_frame.get_data())
+            depth_img = np.asanyarray(depth_frame.get_data())
+
+            # Saves frames
+            temp_img_dir = args.dataset_path
+            temp_img_color_fname = 'temp_img_rs-rgb.png'
+            temp_img_depth_fname = 'temp_img_rs-depth.png'
+            cv2.imwrite(os.path.join(temp_img_dir, temp_img_color_fname), color_img)
+            cv2.imwrite(os.path.join(temp_img_dir, temp_img_depth_fname), depth_img)
+
+            # Load Dataset
+            logging.info('Loading {} Dataset...'.format(args.dataset.title()))
+            Dataset = get_dataset(args.dataset)
+            test_dataset = Dataset(args.dataset_path, start=args.split, end=1.0, ds_rotate=args.ds_rotate,
+                                   random_rotate=args.augment, random_zoom=args.augment,
+                                   include_depth=args.use_depth, include_rgb=args.use_rgb)
+            test_data = torch.utils.data.DataLoader(
+                test_dataset,
+                batch_size=1,
+                shuffle=False,
+                num_workers=args.num_workers
+            )
+            logging.info('Done')
 
             for idx, (x, y, didx, rot, zoom) in enumerate(test_data):
                 print('x size 3', x.size())

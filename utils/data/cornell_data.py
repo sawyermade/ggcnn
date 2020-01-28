@@ -52,14 +52,14 @@ class CornellDataset(GraspDatasetBase):
 
     def get_depth(self, idx, rot=0, zoom=1.0):
         depth_img = image.DepthImage.from_tiff(self.depth_files[idx])
-        print('depth_img.img 1', depth_img.img.shape)
+        # print('depth_img.img 1', depth_img.img.shape)
         center, left, top = self._get_crop_attrs(idx)
         depth_img.rotate(rot, center)
         depth_img.crop((top, left), (min(480, top + self.output_size), min(640, left + self.output_size)))
         depth_img.normalise()
         depth_img.zoom(zoom)
         depth_img.resize((self.output_size, self.output_size))
-        print('depth_img.img 2', depth_img.img.shape)
+        # print('depth_img.img 2', depth_img.img.shape)
         return depth_img.img
 
     def get_rgb(self, idx, rot=0, zoom=1.0, normalise=True):

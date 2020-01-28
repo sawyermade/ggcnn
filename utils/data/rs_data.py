@@ -2,7 +2,7 @@ import os
 import glob
 import numpy as np
 
-from .grasp_data_dir import GraspDatasetBaseDir, GraspRsDirDataset
+from .grasp_data_rs import GraspDatasetBaseDir, GraspRsDataset
 from utils.dataset_processing import grasp, image
 
 import cv2, jsonpickle, requests
@@ -19,10 +19,12 @@ class RsDataset(GraspRsDataset):
         :param ds_rotate: If splitting the dataset, rotate the list of items by this fraction first
         :param kwargs: kwargs for GraspDatasetBase
         """
-        super(RsDirDataset, self).__init__(**kwargs)
+        super(RsDataset, self).__init__(**kwargs)
+
+        self.file_path = file_path
 
         # graspf = glob.glob(os.path.join(file_path, '*', 'pcd*cpos.txt'))
-        graspf = glob.glob(os.path.join(file_path, '*-depth_vis.png'))
+        graspf = glob.glob(os.path.join(file_path, '*rs-depth.png'))
         graspf.sort()
         l = len(graspf)
         if l == 0:
@@ -31,8 +33,9 @@ class RsDataset(GraspRsDataset):
         if ds_rotate:
             graspf = graspf[int(l*ds_rotate):] + graspf[:int(l*ds_rotate)]
 
-        depthf = [f.replace('depth_vis', 'depth') for f in graspf]
-        rgbf = [f.replace('depth', 'color') for f in depthf]
+        # depthf = [f.replace('depth_vis', 'depth') for f in graspf]
+        depthf = graspf
+        rgbf = [f.replace('depth', 'rgb') for f in depthf]
 
         self.grasp_files = graspf[int(l*start):int(l*end)]
         self.depth_files = depthf[int(l*start):int(l*end)]
@@ -65,13 +68,16 @@ class RsDataset(GraspRsDataset):
             center, left, top = self._get_crop_attrs(idx)
         else:
             # print(f'\nIN CENTER_LIST:\n{center_list}\n')
-            center, left, top = center_list[0], center_list[1], center_list[2]
+            center, left, top, mask = center_list
+            depth_img.img = (depth_img.img * mask[:, :, 0]) / 1000.0
+
         depth_img.rotate(rot, center)
         depth_img.crop((top, left), (min(480, top + self.output_size), min(640, left + self.output_size)))
         depth_img.normalise()
         depth_img.zoom(zoom)
         depth_img.resize((self.output_size, self.output_size))
         # print('depth_img.img 2', depth_img.img.shape)
+
         return depth_img.img
 
     def get_rgb(self, idx, rot=0, zoom=1.0, normalise=True):
@@ -79,17 +85,15 @@ class RsDataset(GraspRsDataset):
         # color_img = cv2.imread(self.rgb_files[idx], -1)
         # temp_idx = idx
         color_img = cv2.imread(self.rgb_files[idx], -1)
-        print(f'\n**** IDX = {idx} ****\n')
+        # print(f'\n**** IDX = {idx} ****\n')
         while ret_list == None:
-            
             ret_list = self.upload(color_img)
-            # temp_idx += 1
-            # idx = temp_idx
         
+        object_name = 'remote'
         mask_list = ret_list[-1]
         label_list = ret_list[2]
         bb_list = ret_list[1]
-        which_mask = label_list.index('remote')
+        which_mask = label_list.index(object_name)
         mask_temp = mask_list[which_mask]
         bb_temp = bb_list[which_mask]
         mask = np.zeros(color_img.shape, dtype=np.uint8)
@@ -100,13 +104,15 @@ class RsDataset(GraspRsDataset):
         mask_white[mask_white < 1] = 255
         mask_white[mask_white == 1] = 0
         color_img_masked = mask * color_img + mask_white
-        temp_out_path = 'temp_rgb_masked.png'
-        cv2.imwrite(temp_out_path, color_img_masked)
+        # fname = 'temp_rgb_masked.png'
+        # temp_out_path = os.path.join(self.file_path, fname)
+        # cv2.imwrite(temp_out_path, color_img_masked)
 
         bb_dims = [bb_temp[2] - bb_temp[0], bb_temp[3] - bb_temp[1]]
         center = [int(bb_temp[1] + bb_dims[1] // 2), int(bb_temp[0] + bb_dims[0] // 2)]
 
-        rgb_img = image.Image.from_file(temp_out_path)
+        # rgb_img = image.Image.from_file(temp_out_path)
+        rgb_img = image.Image(cv2.cvtColor(color_img_masked, cv2.COLOR_BGR2RGB))
         # rgb_img = image.Image.from_file(self.rgb_files[idx])
         # print('rgb_img.img 1', rgb_img.img.shape)
         center, left, top = self._get_crop_attrs(idx, center)
@@ -119,7 +125,7 @@ class RsDataset(GraspRsDataset):
             rgb_img.img = rgb_img.img.transpose((2, 0, 1))
             # print('rgb_img.img', rgb_img.img.shape)
         # print('rgb_img.img 2', rgb_img.img.shape)
-        return rgb_img.img, (center, left, top)
+        return rgb_img.img, (center, left, top, mask)
 
     # Uploads to Detectron
     def upload(self, frame, url='http://127.0.0.1:665'):

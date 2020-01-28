@@ -12,8 +12,9 @@ class Image:
     """
     Wrapper around an image with some convenient functions.
     """
-    def __init__(self, img):
+    def __init__(self, img, file_path=None):
         self.img = img
+        self.file_path = file_path
 
     def __getattr__(self, attr):
         # Pass along any other methods to the underlying ndarray
@@ -123,8 +124,8 @@ class Image:
 
 
 class DepthImage(Image):
-    def __init__(self, img):
-        super().__init__(img)
+    def __init__(self, img, file_path=None):
+        super().__init__(img, file_path)
 
     @classmethod
     def from_pcd(cls, pcd_filename, shape, default_filler=0, index=None):
@@ -171,11 +172,16 @@ class DepthImage(Image):
 
     @classmethod
     def from_png(cls, fname):
-        img_temp = cv2.imread(fname, -1)
-        img_temp = img_temp / 1000.0
-        print('img_temp type = ', img_temp.dtype)
-        cv2.imwrite('img_temp.png', img_temp)
-        return cls(imread('img_temp.png'))
+        # img_temp = cv2.imread(fname, -1)
+        # img_temp = img_temp / 1000.0
+        # fname = 'temp_depth_unmasked.png'
+        # if self.file_path:
+        #     out_fpath = os.path.join(self.file_path, fname)
+        # else:
+        #     out_fpath = fname
+        # print('img_temp type = ', img_temp.dtype)
+        # cv2.imwrite(out_path, img_temp)
+        return cls(imread(fname))
 
     def inpaint(self, missing_value=0):
         """

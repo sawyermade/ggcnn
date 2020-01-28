@@ -1,8 +1,8 @@
 #!/bin/bash
-python3 eval_ggcnn_rs_dir.py \
-	--network output/models/191206_1505_ggcnn2_50/epoch_44_iou_0.93 \
-	--dataset rs_dir \
-	--dataset-path ./realsense/remote_frames_png/ \
+python3 eval_ggcnn_rs.py \
+	--network output/models/ggcnn_50_dc_default/epoch_44_iou_0.93 \
+	--dataset rs \
+	--dataset-path ./temp_img_dir \
 	--use-depth 1 \
 	--use-rgb 1 \
 	--split 0.0 \
