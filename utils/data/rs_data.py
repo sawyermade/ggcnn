@@ -70,6 +70,7 @@ class RsDataset(GraspRsDataset):
             # print(f'\nIN CENTER_LIST:\n{center_list}\n')
             center, left, top, mask = center_list
             depth_img.img = (depth_img.img * mask[:, :, 0]) / 1000.0
+            # depth_img.img = depth_img.img / 1000.0
 
         depth_img.rotate(rot, center)
         depth_img.crop((top, left), (min(480, top + self.output_size), min(640, left + self.output_size)))
@@ -90,6 +91,7 @@ class RsDataset(GraspRsDataset):
             ret_list = self.upload(color_img)
         
         object_name = 'remote'
+        # object_name = 'bottle'
         mask_list = ret_list[-1]
         label_list = ret_list[2]
         bb_list = ret_list[1]

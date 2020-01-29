@@ -64,9 +64,10 @@ class GraspRsDataset(torch.utils.data.Dataset):
         else:
             zoom_factor = 1.0
 
-        # Load the RGB image
-        if self.include_rgb:
-            rgb_img, center_list = self.get_rgb(idx, rot, zoom_factor)
+        # # Load the RGB image
+        # if self.include_rgb:
+        #     rgb_img, center_list = self.get_rgb(idx, rot, zoom_factor)
+        rgb_img, center_list = self.get_rgb(idx, rot, zoom_factor)
 
         # Load the depth image
         if self.include_depth:
@@ -86,18 +87,12 @@ class GraspRsDataset(torch.utils.data.Dataset):
                     0
                 )
             )
-            # print('x size 1', x.size())
-            # xt = np.concatenate(
-            #     (np.expand_dims(depth_img, 0),
-            #      rgb_img),
-            #     0
-            # )
-            # print('xt concat shape', xt.shape)
 
         elif self.include_depth:
             x = self.numpy_to_torch(depth_img)
         elif self.include_rgb:
             x = self.numpy_to_torch(rgb_img)
+        # x = self.numpy_to_torch(depth_img)
 
         pos = self.numpy_to_torch(pos_img)
         cos = self.numpy_to_torch(np.cos(2*ang_img))
