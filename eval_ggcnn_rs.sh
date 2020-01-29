@@ -1,5 +1,5 @@
 #!/bin/bash
-python3 eval_ggcnn_rs.py \
+python3 -u eval_ggcnn_rs.py \
 	--network output/models/ggcnn2_50_dc_default/epoch_37_iou_0.95 \
 	--dataset rs \
 	--dataset-path ./temp_img_dir \

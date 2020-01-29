@@ -87,15 +87,27 @@ class RsDataset(GraspRsDataset):
         # temp_idx = idx
         color_img = cv2.imread(self.rgb_files[idx], -1)
         # print(f'\n**** IDX = {idx} ****\n')
-        while ret_list == None:
+        flag_detectron = True
+        while ret_list == None or flag_detectron:
             ret_list = self.upload(color_img)
         
-        object_name = 'remote'
-        # object_name = 'bottle'
-        mask_list = ret_list[-1]
-        label_list = ret_list[2]
-        bb_list = ret_list[1]
-        which_mask = label_list.index(object_name)
+            
+            object_name = 'remote'
+            mask_list = ret_list[-1]
+            label_list = ret_list[2]
+            bb_list = ret_list[1]
+            print('Labels from Detectron: \n', label_list)
+            # object_name = input('Enter object: ')
+            
+            if object_name in label_list:
+                which_mask = label_list.index(object_name)
+                flag_detectron = False
+
+        # object_name = 'remote'
+        # mask_list = ret_list[-1]
+        # label_list = ret_list[2]
+        # bb_list = ret_list[1]
+        # which_mask = label_list.index(object_name)
         mask_temp = mask_list[which_mask]
         bb_temp = bb_list[which_mask]
         mask = np.zeros(color_img.shape, dtype=np.uint8)

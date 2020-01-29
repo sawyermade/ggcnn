@@ -139,8 +139,11 @@ if __name__ == '__main__':
             )
             logging.info('Done')
 
+            test_input = input('wtf, does this work: ')
+            print(f'test_input = {test_input}')
+
             for idx, (x, y, didx, rot, zoom) in enumerate(test_data):
-                print('x size 3', x.size())
+                # print('x size 3', x.size())
                 logging.info('Processing {}/{}'.format(idx+1, len(test_data)))
                 xc = x.to(device)
                 yc = [yi.to(device) for yi in y]
