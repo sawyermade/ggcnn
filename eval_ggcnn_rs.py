@@ -9,10 +9,35 @@ from utils.data import get_dataset
 
 import os, cv2
 import pyrealsense2 as rs
-import numpy as np
+import numpy as np, requests, jsonpickle
 
 logging.basicConfig(level=logging.INFO)
 
+# Uploads to Detectron
+def upload(frame, url='http://127.0.0.1:665'):
+    # Prep headers for http req
+    content_type = 'application/json'
+    headers = {'content_type': content_type}
+
+    # jsonpickle the numpy frame
+    _, frame_png = cv2.imencode('.png', frame)
+    frame_json = jsonpickle.encode(frame_png)
+
+    # Post and get response
+    try:
+        response = requests.post(url, data=frame_json, headers=headers)
+        if response.text:
+            # Decode response and return it
+            retList = jsonpickle.decode(response.text)
+            retList[0] = cv2.imdecode(retList[0], cv2.IMREAD_COLOR)
+            retList[-1] = [cv2.imdecode(m, cv2.IMREAD_GRAYSCALE) for m in retList[-1]]
+            
+            # returns [vis.png, bbList, labelList, scoreList, maskList]
+            return retList
+        else:
+            return None
+    except:
+        return None
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Evaluate GG-CNN')
@@ -118,6 +143,44 @@ if __name__ == '__main__':
             color_img = np.asanyarray(color_frame.get_data())
             depth_img = np.asanyarray(depth_frame.get_data())
 
+            # Gets Image masks and object of interest
+            flag_detectron = True
+            ret_list = None
+            while ret_list == None or flag_detectron:
+                ret_list = upload(color_img)
+                if ret_list == None:
+                    continue
+            
+                mask_list = ret_list[-1]
+                label_list = ret_list[2]
+                bb_list = ret_list[1]
+                print('Objects Found:')
+                for ln, label in enumerate(label_list):
+                    print(f'{ln+1}. {label}')
+
+                object_idx = int(input('Enter Object Number, zero to refresh: ')) - 1
+                if object_idx < 0 or object_idx >= len(label_list):
+                    print('Object Not Found. Refreshing Object Detection...\n')
+                else:
+                    flag_detectron = False
+
+            # Applies mask to rgb and depth imgs
+            mask_temp = mask_list[object_idx]
+            bb_temp = bb_list[object_idx]
+            mask = np.zeros(color_img.shape, dtype=np.uint8)
+            mask[:,:,0] = np.copy(mask_temp)
+            mask[:,:,1] = np.copy(mask_temp)
+            mask[:,:,2] = np.copy(mask_temp)
+            mask_white = np.copy(mask)
+            mask_white[mask_white < 1] = 255
+            mask_white[mask_white == 1] = 0
+            color_img = mask * color_img + mask_white
+            depth_img = depth_img * mask[:,:,0]
+
+            # Gets center from bounding box
+            bb_dims = [bb_temp[2] - bb_temp[0], bb_temp[3] - bb_temp[1]]
+            center_pt = [int(bb_temp[1] + bb_dims[1] // 2), int(bb_temp[0] + bb_dims[0] // 2)]
+                
             # Saves frames
             temp_img_dir = args.dataset_path
             temp_img_color_fname = 'temp_img_rs-rgb.png'
@@ -128,7 +191,7 @@ if __name__ == '__main__':
             # Load Dataset
             logging.info('Loading {} Dataset...'.format(args.dataset.title()))
             Dataset = get_dataset(args.dataset)
-            test_dataset = Dataset(args.dataset_path, start=args.split, end=1.0, ds_rotate=args.ds_rotate,
+            test_dataset = Dataset(args.dataset_path, center_pt, start=args.split, end=1.0, ds_rotate=args.ds_rotate,
                                    random_rotate=args.augment, random_zoom=args.augment,
                                    include_depth=args.use_depth, include_rgb=args.use_rgb)
             test_data = torch.utils.data.DataLoader(
@@ -138,9 +201,6 @@ if __name__ == '__main__':
                 num_workers=args.num_workers
             )
             logging.info('Done')
-
-            test_input = input('wtf, does this work: ')
-            print(f'test_input = {test_input}')
 
             for idx, (x, y, didx, rot, zoom) in enumerate(test_data):
                 # print('x size 3', x.size())
@@ -171,8 +231,8 @@ if __name__ == '__main__':
                             f.write(g.to_jacquard(scale=1024 / 300) + '\n')
 
                 if args.vis:
-                    rgb_gotten, center_list = test_data.dataset.get_rgb(didx, rot, zoom, normalise=False)
-                    depth_gotten = test_data.dataset.get_depth(didx, rot, zoom, center_list)
+                    rgb_gotten = test_data.dataset.get_rgb(didx, rot, zoom, normalise=False)
+                    depth_gotten = test_data.dataset.get_depth(didx, rot, zoom)
                     evaluation.plot_output(rgb_gotten, depth_gotten, q_img,
                                            ang_img, no_grasps=args.n_grasps, grasp_width_img=width_img)
 

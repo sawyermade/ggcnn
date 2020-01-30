@@ -65,13 +65,13 @@ class GraspRsDataset(torch.utils.data.Dataset):
             zoom_factor = 1.0
 
         # # Load the RGB image
-        # if self.include_rgb:
-        #     rgb_img, center_list = self.get_rgb(idx, rot, zoom_factor)
-        rgb_img, center_list = self.get_rgb(idx, rot, zoom_factor)
+        if self.include_rgb:
+            rgb_img = self.get_rgb(idx, rot, zoom_factor)
+        # rgb_img, center_list = self.get_rgb(idx, rot, zoom_factor)
 
         # Load the depth image
         if self.include_depth:
-            depth_img = self.get_depth(idx, rot, zoom_factor, center_list)
+            depth_img = self.get_depth(idx, rot, zoom_factor)
 
         # Load the grasps
         bbs = self.get_gtbb(idx, rot, zoom_factor)
