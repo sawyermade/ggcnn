@@ -8,3 +8,4 @@ tensorboard
 /.python-version
 img_temp.png
 temp_rgb_masked.png
+temp_img_dir
